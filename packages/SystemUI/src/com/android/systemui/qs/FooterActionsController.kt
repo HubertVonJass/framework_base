@@ -1,0 +1,325 @@
+/*
+ * Copyright (C) 2021 The Android Open Source Project
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+package com.android.systemui.qs
+
+import android.content.Context
+import android.content.Intent
+import android.os.UserManager
+import android.os.VibrationEffect
+import android.os.VibrationEffect.EFFECT_CLICK
+import android.os.Vibrator
+import android.provider.Settings
+import android.view.View
+import android.widget.Toast
+import androidx.annotation.VisibleForTesting
+import com.android.internal.jank.InteractionJankMonitor
+import com.android.internal.logging.MetricsLogger
+import com.android.internal.logging.UiEventLogger
+import com.android.internal.logging.nano.MetricsProto
+import com.android.keyguard.KeyguardUpdateMonitor
+import com.android.systemui.R
+import com.android.systemui.animation.ActivityLaunchAnimator
+import com.android.systemui.globalactions.GlobalActionsDialogLite
+import com.android.systemui.plugins.ActivityStarter
+import com.android.systemui.plugins.FalsingManager
+import com.android.systemui.qs.FooterActionsController.ExpansionState.COLLAPSED
+import com.android.systemui.qs.FooterActionsController.ExpansionState.EXPANDED
+import com.android.systemui.qs.dagger.QSFlagsModule.PM_LITE_ENABLED
+import com.android.systemui.statusbar.phone.MultiUserSwitchController
+import com.android.systemui.statusbar.phone.SettingsButton
+import com.android.systemui.statusbar.phone.RunningServicesButton
+import com.android.systemui.statusbar.policy.DeviceProvisionedController
+import com.android.systemui.statusbar.policy.UserInfoController
+import com.android.systemui.statusbar.policy.UserInfoController.OnUserInfoChangedListener
+import com.android.systemui.tuner.TunerService
+import com.android.systemui.util.ViewController
+import javax.inject.Inject
+import javax.inject.Named
+
+/**
+ * Manages [FooterActionsView] behaviour, both when it's placed in QS or QQS (split shade).
+ * Main difference between QS and QQS behaviour is condition when buttons should be visible,
+ * determined by [buttonsVisibleState]
+ */
+class FooterActionsController @Inject constructor(
+    view: FooterActionsView,
+    private val context: Context,
+    private val qsPanelController: QSPanelController,
+    private val activityStarter: ActivityStarter,
+    private val userManager: UserManager,
+    private val userInfoController: UserInfoController,
+    private val multiUserSwitchController: MultiUserSwitchController,
+    private val deviceProvisionedController: DeviceProvisionedController,
+    private val falsingManager: FalsingManager,
+    private val metricsLogger: MetricsLogger,
+    private val tunerService: TunerService,
+    private val globalActionsDialog: GlobalActionsDialogLite,
+    private val uiEventLogger: UiEventLogger,
+    @Named(PM_LITE_ENABLED) private val showPMLiteButton: Boolean,
+    private val buttonsVisibleState: ExpansionState
+) : ViewController<FooterActionsView>(view) {
+
+    enum class ExpansionState { COLLAPSED, EXPANDED }
+
+    private var listening: Boolean = false
+    private var mShowPMLiteButton: Boolean = true
+
+    var expanded = false
+
+    private val vibrator = context.getSystemService(Vibrator::class.java)
+    private val settingsButton: SettingsButton = view.findViewById(R.id.settings_button)
+    private val settingsButtonContainer: View? = view.findViewById(R.id.settings_button_container)
+    private val editButton: View = view.findViewById(android.R.id.edit)
+    private val powerMenuLite: View = view.findViewById(R.id.pm_lite)
+    private val runningServicesButton: RunningServicesButton = view.findViewById(R.id.running_services_button)
+
+    private val onUserInfoChangedListener = OnUserInfoChangedListener { _, picture, _ ->
+        val isGuestUser: Boolean = userManager.isGuestUser(KeyguardUpdateMonitor.getCurrentUser())
+        mView.onUserInfoChanged(picture, isGuestUser)
+    }
+
+    private val QS_FOOTER_SHOW_SETTINGS =
+            "system:" + Settings.System.QS_FOOTER_SHOW_SETTINGS
+    private val QS_FOOTER_SHOW_SERVICES =
+            "system:" + Settings.System.QS_FOOTER_SHOW_SERVICES
+    private val QS_FOOTER_SHOW_EDIT =
+            "system:" + Settings.System.QS_FOOTER_SHOW_EDIT
+    private val  QS_FOOTER_SHOW_USER =
+            "system:" + Settings.System.QS_FOOTER_SHOW_USER
+    private val  QS_FOOTER_SHOW_POWER_MENU =
+            "system:" + Settings.System.QS_FOOTER_SHOW_POWER_MENU
+
+    private val onClickListener = View.OnClickListener { v ->
+        // Don't do anything until views are unhidden. Don't do anything if the tap looks
+        // suspicious.
+        if (!buttonsVisible() || falsingManager.isFalseTap(FalsingManager.LOW_PENALTY)) {
+            return@OnClickListener
+        }
+        if (v === settingsButton) {
+            if (!deviceProvisionedController.isCurrentUserSetup) {
+                // If user isn't setup just unlock the device and dump them back at SUW.
+                activityStarter.postQSRunnableDismissingKeyguard {}
+                return@OnClickListener
+            }
+            metricsLogger.action(
+                    if (expanded) MetricsProto.MetricsEvent.ACTION_QS_EXPANDED_SETTINGS_LAUNCH
+                    else MetricsProto.MetricsEvent.ACTION_QS_COLLAPSED_SETTINGS_LAUNCH)
+            if (settingsButton.isTunerClick) {
+                activityStarter.postQSRunnableDismissingKeyguard {
+                    if (isTunerEnabled()) {
+                        tunerService.showResetRequest {
+                            // Relaunch settings so that the tuner disappears.
+                            startSettingsActivity()
+                        }
+                    } else {
+                        Toast.makeText(context, R.string.tuner_toast, Toast.LENGTH_LONG).show()
+                        tunerService.isTunerEnabled = true
+                    }
+                    startSettingsActivity()
+                }
+            } else {
+                startSettingsActivity()
+            }
+        } else if (v === powerMenuLite) {
+            uiEventLogger.log(GlobalActionsDialogLite.GlobalActionsEvent.GA_OPEN_QS)
+            globalActionsDialog.showOrHideDialog(false, true, v)
+        } else if (v === runningServicesButton) {
+            if (!deviceProvisionedController.isCurrentUserSetup) {
+                // If user isn't setup just unlock the device and dump them back at SUW.
+                activityStarter.postQSRunnableDismissingKeyguard {}
+                return@OnClickListener
+            }
+            metricsLogger.action(
+                    if (expanded) MetricsProto.MetricsEvent.ACTION_QS_EXPANDED_SETTINGS_LAUNCH
+                    else MetricsProto.MetricsEvent.ACTION_QS_COLLAPSED_SETTINGS_LAUNCH)
+            startRunningServicesActivity()
+        }
+    }
+
+    private val onLongClickListener = View.OnLongClickListener { v ->
+        // Don't do anything until views are unhidden. Don't do anything if the tap looks
+        // suspicious.
+        if (!buttonsVisible() || falsingManager.isFalseTap(FalsingManager.LOW_PENALTY)) {
+            return@OnLongClickListener false
+        }
+
+        if (v === settingsButton) {
+            if (!deviceProvisionedController.isCurrentUserSetup) {
+                // If user isn't setup just unlock the device and dump them back at SUW.
+                activityStarter.postQSRunnableDismissingKeyguard {}
+                return@OnLongClickListener false
+            }
+            startEvolverActivity()
+            return@OnLongClickListener true
+        }
+        return@OnLongClickListener false
+    }
+
+    private fun buttonsVisible(): Boolean {
+        return when (buttonsVisibleState) {
+            EXPANDED -> expanded
+            COLLAPSED -> !expanded
+        }
+    }
+
+    override fun onInit() {
+        multiUserSwitchController.init()
+    }
+
+    fun hideFooter() {
+        mView.visibility = View.GONE
+    }
+
+    fun showFooter() {
+        mView.visibility = View.VISIBLE
+        updateView()
+    }
+
+    private fun startSettingsActivity() {
+        val animationController = settingsButtonContainer?.let {
+            ActivityLaunchAnimator.Controller.fromView(
+                    it,
+                    InteractionJankMonitor.CUJ_SHADE_APP_LAUNCH_FROM_SETTINGS_BUTTON)
+            }
+        activityStarter.startActivity(Intent(Settings.ACTION_SETTINGS),
+                true /* dismissShade */, animationController)
+    }
+
+    private fun startEvolverActivity() {
+        val intent = Intent()
+        intent.setClassName("com.android.settings",
+                "com.android.settings.Settings\$EvolutionSettingsActivity")
+        val animationController = settingsButtonContainer?.let {
+            ActivityLaunchAnimator.Controller.fromView(
+                    it,
+                    InteractionJankMonitor.CUJ_SHADE_APP_LAUNCH_FROM_SETTINGS_BUTTON)
+            }
+        activityStarter.startActivity(intent, true /* dismissShade */, animationController)
+        vibrator.vibrate(VibrationEffect.createPredefined(EFFECT_CLICK))
+    }
+
+    private fun startRunningServicesActivity() {
+        val intent = Intent()
+        intent.setClassName("com.android.settings",
+                "com.android.settings.Settings\$DevRunningServicesActivity")
+        activityStarter.startActivity(intent, true /* dismissShade */)
+    }
+
+    @VisibleForTesting
+    public override fun onViewAttached() {
+        settingsButton.setOnClickListener(onClickListener)
+        settingsButton.setOnLongClickListener(onLongClickListener)
+        runningServicesButton.setOnClickListener(onClickListener)
+        editButton.setOnClickListener(View.OnClickListener { view: View? ->
+            if (falsingManager.isFalseTap(FalsingManager.LOW_PENALTY)) {
+                return@OnClickListener
+            }
+            activityStarter.postQSRunnableDismissingKeyguard { qsPanelController.showEdit(view) }
+        })
+
+        tunerService.addTunable(object : TunerService.Tunable {
+            override fun onTuningChanged(key: String?, newValue: String?) {
+                mView.updateSettingsIconVisibility(tunerService.getValue(key, 1) != 0)
+            }
+        }, QS_FOOTER_SHOW_SETTINGS)
+
+        tunerService.addTunable(object : TunerService.Tunable {
+            override fun onTuningChanged(key: String?, newValue: String?) {
+                mView.updateServicesIconVisibility(tunerService.getValue(key, 0) != 0)
+            }
+        }, QS_FOOTER_SHOW_SERVICES)
+
+        tunerService.addTunable(object : TunerService.Tunable {
+            override fun onTuningChanged(key: String?, newValue: String?) {
+                mView.updateEditIconVisibility(tunerService.getValue(key, 1) != 0)
+            }
+        }, QS_FOOTER_SHOW_EDIT)
+
+        tunerService.addTunable(object : TunerService.Tunable {
+            override fun onTuningChanged(key: String?, newValue: String?) {
+                mView.updateUserIconVisibility(tunerService.getValue(key, 1) != 0)
+            }
+        }, QS_FOOTER_SHOW_USER)
+
+        tunerService.addTunable(object : TunerService.Tunable {
+            override fun onTuningChanged(key: String?, newValue: String?) {
+                mShowPMLiteButton = tunerService.getValue(key, 1) != 0
+                updatePMLiteIconVisibility()
+            }
+        }, QS_FOOTER_SHOW_POWER_MENU)
+
+        updateView()
+    }
+
+    private fun updatePMLiteIconVisibility() {
+        if (mShowPMLiteButton) {
+            powerMenuLite.visibility = View.VISIBLE
+            powerMenuLite.setOnClickListener(onClickListener)
+        } else {
+            powerMenuLite.visibility = View.GONE
+            powerMenuLite.setOnClickListener(null)
+        }
+    }
+
+    private fun updateView() {
+        mView.updateEverything(isTunerEnabled(), multiUserSwitchController.isMultiUserEnabled)
+        updatePMLiteIconVisibility()
+    }
+
+    override fun onViewDetached() {
+        setListening(false)
+    }
+
+    fun setListening(listening: Boolean) {
+        if (this.listening == listening) {
+            return
+        }
+        this.listening = listening
+        if (this.listening) {
+            userInfoController.addCallback(onUserInfoChangedListener)
+            updateView()
+        } else {
+            userInfoController.removeCallback(onUserInfoChangedListener)
+        }
+    }
+
+    fun disable(state2: Int) {
+        mView.disable(state2, isTunerEnabled(), multiUserSwitchController.isMultiUserEnabled)
+    }
+
+    fun setExpansion(headerExpansionFraction: Float) {
+        mView.setExpansion(headerExpansionFraction)
+    }
+
+    fun updateAnimator(width: Int, numTiles: Int) {
+        mView.updateAnimator(width, numTiles)
+    }
+
+    fun setKeyguardShowing() {
+        mView.setKeyguardShowing()
+    }
+
+    fun refreshVisibility(shouldBeVisible: Boolean) {
+        if (shouldBeVisible) {
+            showFooter()
+        } else {
+            hideFooter()
+        }
+    }
+
+    private fun isTunerEnabled() = false
+}

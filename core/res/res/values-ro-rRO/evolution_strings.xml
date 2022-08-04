@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+     Copyright (C) 2019-2022 Evolution X
+     SPDX-License-Identifier: Apache-2.0
+-->
+<resources xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
+    <!-- Button that copies the url to the log of a crashed application -->
+    <string name="aerr_copy">Copiază URL-ul jurnalului de erori</string>
+    <string name="url_copy_success">URL copiat cu succes</string>
+    <string name="url_copy_failed">A apărut o eroare la încărcarea jurnalului în Pasty</string>
+    <!-- Cycle through ringer modes -->
+    <string name="volume_dialog_ringer_guidance_normal">Apelurile și notificările vor suna</string>
+    <!-- App lock -->
+    <string name="unlock_application">Deblocare <xliff:g id="label" example="Telegram">%1$s</xliff:g></string>
+    <!-- Advanced reboot -->
+    <string name="reboot_to_recovery_title">Recovery</string>
+    <string name="reboot_to_recovery_message">Repornire în Recovery</string>
+    <string name="reboot_to_bootloader_title">Bootloader</string>
+    <string name="reboot_to_bootloader_message">Repornire în bootloader</string>
+    <string name="reboot_title">Repornire</string>
+    <string name="reboot_message">Repornire sistem</string>
+    <!-- Face unlock -->
+    <string name="face_unlock_disabled_idle">Deblocarea facială a fost dezactivată din cauza inactivității</string>
+    <!-- SystemUI Restart -->
+    <string name="systemui_restart_title">Este necesară repornirea interfeței sistemului</string>
+    <string name="systemui_restart_message">Pentru ca toate modificările să aibă efect, este necesară o repornire a interfeței sistemului. Reporniți interfața de sistem acum?</string>
+</resources>

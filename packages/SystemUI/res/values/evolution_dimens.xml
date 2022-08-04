@@ -1,0 +1,111 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+     Copyright (C) 2019-2022 Evolution X
+     SPDX-License-Identifier: Apache-2.0
+-->
+<resources>
+    <!-- Tri-state UI -->
+    <dimen name="tri_state_down_dialog_position">850.0px</dimen>
+    <dimen name="tri_state_down_dialog_position_l">650.0px</dimen>
+    <dimen name="tri_state_middle_dialog_position">650.0px</dimen>
+    <dimen name="tri_state_middle_dialog_position_l">650.0px</dimen>
+    <dimen name="tri_state_up_dialog_position">450.0px</dimen>
+    <dimen name="tri_state_up_dialog_position_l">650.0px</dimen>
+    <dimen name="tri_state_up_dialog_position_deep">21.0px</dimen>
+    <dimen name="tri_state_up_dialog_position_deep_land">21.0px</dimen>
+    <dimen name="tri_state_dialog_elevation">4.0dip</dimen>
+    <dimen name="tri_state_dialog_icon_size">24.0dip</dimen>
+    <dimen name="tri_state_dialog_padding">8.0dip</dimen>
+    <dimen name="tri_state_mid_bottom_left_radius">24.0dip</dimen>
+    <dimen name="tri_state_mid_bottom_right_radius">24.0dip</dimen>
+    <dimen name="tri_state_mid_top_left_radius">24.0dip</dimen>
+    <dimen name="tri_state_mid_top_right_radius">24.0dip</dimen>
+    <dimen name="left_tri_state_down_bottom_left_radius">24.0dip</dimen>
+    <dimen name="left_tri_state_down_bottom_right_radius">24.0dip</dimen>
+    <dimen name="left_tri_state_down_top_left_radius">0.0dip</dimen>
+    <dimen name="left_tri_state_down_top_right_radius">24.0dip</dimen>
+    <dimen name="left_tri_state_up_bottom_left_radius">0.0dip</dimen>
+    <dimen name="left_tri_state_up_bottom_right_radius">24.0dip</dimen>
+    <dimen name="left_tri_state_up_top_left_radius">24.0dip</dimen>
+    <dimen name="left_tri_state_up_top_right_radius">24.0dip</dimen>
+    <dimen name="right_tri_state_down_bottom_left_radius">24.0dip</dimen>
+    <dimen name="right_tri_state_down_bottom_right_radius">24.0dip</dimen>
+    <dimen name="right_tri_state_down_top_left_radius">24.0dip</dimen>
+    <dimen name="right_tri_state_down_top_right_radius">0.0dip</dimen>
+    <dimen name="right_tri_state_up_bottom_left_radius">24.0dip</dimen>
+    <dimen name="right_tri_state_up_bottom_right_radius">0.0dip</dimen>
+    <dimen name="right_tri_state_up_top_left_radius">24.0dip</dimen>
+    <dimen name="right_tri_state_up_top_right_radius">24.0dip</dimen>
+
+    <!-- Bottom margin size when fingerprint in display is active -->
+    <dimen name="keyguard_indication_margin_bottom_fingerprint_in_display">@dimen/keyguard_indication_margin_bottom</dimen>
+
+    <!-- Additional gesture navbar lengths -->
+    <dimen name="navigation_home_handle_width_medium">110dp</dimen>
+    <dimen name="navigation_home_handle_width_long">140dp</dimen>
+
+    <!-- Additional gesture navbar radiuses -->
+    <dimen name="navigation_handle_radius_medium">2dp</dimen>
+    <dimen name="navigation_handle_radius_big">3dp</dimen>
+    <dimen name="navigation_handle_radius_large">4dp</dimen>
+
+    <!-- Old style mobile data indicators -->
+    <dimen name="status_bar_mobile_signal_with_type_width">18dp</dimen>
+    <dimen name="status_bar_mobile_signal_width">16dp</dimen>
+    <dimen name="status_bar_mobile_type_height">8dp</dimen>
+    <dimen name="status_bar_mobile_type_padding">2dp</dimen>
+    <dimen name="status_bar_mobile_type_padding_limit">10dp</dimen>
+
+    <!-- FPSInfoService FPS Info text padding -->
+    <dimen name="fps_info_text_padding">4dp</dimen>
+
+    <!-- StatusBar burn-in protection -->
+    <dimen name="horizontal_max_shift">3.0dp</dimen>
+    <dimen name="vertical_max_shift">2.0dp</dimen>
+
+    <dimen name="screenrecord_dot_size">48dp</dimen>
+
+    <!-- Screenshot drawables -->
+    <dimen name="screenshot_border_corner_radius">24dp</dimen>
+    <dimen name="screenshot_preview_corner_radius">20dp</dimen>
+    <dimen name="screenshot_button_corner_radius">20dp</dimen>
+
+    <!-- Udfps fingerprint animation -->
+    <dimen name="udfps_animation_size">280dp</dimen>
+    <dimen name="udfps_animation_offset">0dp</dimen>
+
+    <!-- Clear all notifications button -->
+    <dimen name="dismiss_all_button_elevation">10dp</dimen>
+    <dimen name="dismiss_all_button_height">55dp</dimen>
+    <dimen name="dismiss_all_button_width">55dp</dimen>
+    <dimen name="dismiss_all_button_margin_bottom">48dp</dimen>
+    <dimen name="dismiss_all_fab_src_size">24dp</dimen>
+
+    <!-- Floating rotation button margin when on 2-button navbar mode -->
+    <dimen name="floating_rotation_button_min_margin_navbar">60dp</dimen>
+
+    <!-- QQS Brightness slider -->
+    <dimen name="qqs_top_brightness_margin_top">4dp</dimen>
+    <dimen name="qqs_top_brightness_margin_bottom">12dp</dimen>
+    <dimen name="qqs_bottom_brightness_margin_top">12dp</dimen>
+
+    <!-- QS Brightness slider -->
+    <dimen name="qs_top_brightness_margin_top">8dp</dimen>
+    <dimen name="qs_top_brightness_margin_bottom">10dp</dimen>
+    <dimen name="qs_bottom_brightness_margin_top">10dp</dimen>
+
+    <!-- Width of the battery icon in the status bar when set to circle style. -->
+    <dimen name="status_bar_battery_icon_circle_width">14.5dp</dimen>
+
+    <!-- Width of the big battery circle icon in the status bar. -->
+    <dimen name="status_bar_battery_icon_big_circle_width">20.5dp</dimen>
+
+    <!-- Height of the big battery circle icon in the status bar. -->
+    <dimen name="status_bar_battery_icon_big_circle_height">@dimen/status_bar_battery_icon_big_circle_width</dimen>
+
+    <!-- Height of the landscape battery icon in the status bar. -->
+    <dimen name="status_bar_battery_icon_height_landscape">12.5dp</dimen>
+
+    <!-- Width of the landscape battery icon in the status bar. -->
+    <dimen name="status_bar_battery_icon_width_landscape">24dp</dimen>
+</resources>
